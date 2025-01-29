@@ -10,7 +10,7 @@ This project is designed to simplify the tracking of scores and tricks during th
 - User-friendly interface
 - Easy monitoring of game progress
 
-# ScreenShots
+# Screenshots
 
 ![11](https://github.com/user-attachments/assets/ab219092-2a3a-48f9-afe6-a1aa5c37f804)
 ![22](https://github.com/user-attachments/assets/2b2f73fb-33de-4c8d-8797-1d029cea126a)
