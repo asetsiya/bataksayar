@@ -1,0 +1,51 @@
+[bootstrap]
+main_collection = /main/main.collectionc
+
+[script]
+shared_state = 1
+
+[html5]
+scale_mode = stretch
+show_made_with_defold = 0
+show_console_banner = 0
+splash_image = /logo/bataksayar_logo.png
+show_fullscreen_button = 1
+
+[project]
+title = BatakSayar
+publisher = asetsiya
+developer = asetsiya
+version = 1.7
+dependencies#0 = https://github.com/Insality/druid/archive/refs/tags/1.0.zip
+dependencies#1 = https://github.com/AGulev/jstodef/archive/refs/tags/3.0.0.zip
+dependencies#2 = https://github.com/mchlkpng/defold-mobilehtml5-typing/archive/refs/tags/1.1.2.zip
+
+[android]
+package = com.asetsiya.bataksayar
+immersive_mode = 1
+app_icon_36x36 = /logo/36.png
+app_icon_48x48 = /logo/48.png
+app_icon_72x72 = /logo/72.png
+app_icon_96x96 = /logo/96.png
+app_icon_144x144 = /logo/144.png
+app_icon_192x192 = /logo/192.png
+push_icon_small = /logo/36.png
+push_icon_large = /logo/48.png
+push_icon_small_ldpi = /logo/36.png
+push_icon_small_mdpi = /logo/36.png
+push_icon_small_hdpi = /logo/36.png
+push_icon_small_xhdpi = /logo/48.png
+push_icon_small_xxhdpi = /logo/72.png
+push_icon_small_xxxhdpi = /logo/96.png
+push_icon_large_ldpi = /logo/36.png
+push_icon_large_mdpi = /logo/48.png
+push_icon_large_hdpi = /logo/72.png
+push_icon_large_xhdpi = /logo/96.png
+push_icon_large_xxhdpi = /logo/144.png
+push_icon_large_xxxhdpi = /logo/192.png
+push_field_title = BatakSayar
+push_field_text = BatakSayar
+
+[graphics]
+max_font_batches = 1024
+

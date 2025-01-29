@@ -1,0 +1,553 @@
+
+local druid = require("druid.druid")
+local mht = require("libs.index")
+
+local animation_speed = 0.14
+
+-- swipe between numpad and the other menu.
+local function swipe_animation(self)
+	self.is_animating = true -- animating right now
+
+	if self.is_numpad_active then
+		for a = 1, 4, 1 do
+			local color = gui.get_color(gui.get_node("name_text"..a))
+			local to = vmath.vector4(color.x, color.y, color.z, 1)
+			gui.animate(gui.get_node("name_text"..a), "color", to, gui.EASING_OUTQUART, 0.2, 0)
+		end
+	end
+
+	local to = self.is_numpad_active and 0 or -1027 -- set value for "to" according to is_numpad_active
+	self.is_numpad_active = not self.is_numpad_active
+	gui.animate(self.node_main_root, "position.x" , to, gui.EASING_OUTQUART, animation_speed, 0, function ()
+		self.is_animating = false
+	end)
+
+end
+
+local function add_element(self)
+
+	-- druid default add element --
+
+    local prefab_nodes = gui.clone_tree(self.prefab)
+	local root = prefab_nodes["prefab"]
+	local text = prefab_nodes["text"]
+	table.insert(self.created_nodes, root)
+	gui.set_text(text, 0)
+	gui.set_enabled(root, true)
+
+	self.grid:add(root)
+
+	-- druid default add element --
+
+	self.last_default_node_id = gui.get_id(root)
+	self.last_default_text_id = gui.get_id(text)
+
+	-- button things --
+    self.button = self.druid:new_button(root, function()
+		if self.is_animating then return end -- if animating, skip.
+		if self.is_numpad_active then return end -- bug fixer code
+
+		-- DEFAULT BUTTONS ONCLICK -- ------------------------------------------------------------------------
+
+		local root_id = gui.get_id(root)
+		for _, value in pairs(self.locked_values) do
+			if value == root_id then
+				print("lockedla")
+				return
+			end
+		end
+
+		self.clicked_default_button = gui.get_id(text)
+
+		for index, value in ipairs(self.finalized_nodes) do
+			if value == self.clicked_default_button then
+				table.remove(self.finalized_nodes, index) -- remove clicked node to finalized table
+				self.last_removed = value
+			end
+		end
+
+		for i = 1, 4, 1 do
+			if self.last4_text[i] == self.clicked_default_button then
+				
+				for a = 1, 4, 1 do
+					if a ~= i then
+						local color = gui.get_color(gui.get_node("name_text"..a))
+						local to = vmath.vector4(color.x, color.y, color.z, 0.5)
+						gui.animate(gui.get_node("name_text"..a), "color", to, gui.EASING_OUTQUART, 0.2, 0)
+					end
+				end
+
+				break
+			end
+		end
+
+		swipe_animation(self)
+
+		-- DEFAULT BUTTONS ONCLICK --
+
+	end)
+	-- button things --
+	
+end
+
+local function new_row(self)
+	self.last4_root = {} -- reset table
+	self.last4_text = {} -- reset table
+	self.second_values = {} -- reset table
+	self.row_counter = self.row_counter + 1
+
+	gui.set_text(gui.get_node("row_counter_text"), self.row_counter)
+	
+	for index = 1, 4 do
+		add_element(self)
+		self.last4_root[index] = self.last_default_node_id -- set table
+		self.last4_text[index] = self.last_default_text_id -- set table
+		if self.is_first_row then
+			self.saved_values[self.last_default_text_id] = "1"
+		end
+	end
+	local to_lock = gui.get_position(gui.get_node(self.last_default_node_id)) + vmath.vector3(120, 0, 0)
+	local to_counter = vmath.vector3(gui.get_position(gui.get_node("counter")).x, gui.get_position(gui.get_node(self.last_default_node_id)).y, 0)
+	local to_counter2 = vmath.vector3(gui.get_position(gui.get_node("counter2")).x, gui.get_position(gui.get_node(self.last_default_node_id)).y, 0)
+	gui.animate(gui.get_node("lock"), "position", to_lock, gui.EASING_OUTQUART, animation_speed, 0, nil, nil)
+	gui.animate(gui.get_node("counter"), "position", to_counter, gui.EASING_OUTQUART, animation_speed, 0, nil, nil)
+	gui.set_enabled(gui.get_node("counter2"), true)
+	gui.animate(gui.get_node("counter2"), "position", to_counter2, gui.EASING_OUTQUART, animation_speed, 0, nil, nil)
+	gui.set_text(gui.get_node("counter_text"), "0")
+	gui.set_text(gui.get_node("counter_text2"), "13")
+end
+
+local function sort()
+    local numbers = {}
+
+    -- get 4 numbers and add node names to the table
+    for i = 1, 4 do
+        local node_name = "point_text" .. i
+        local number = tonumber(gui.get_text(gui.get_node(node_name)))
+        table.insert(numbers, {name = node_name, value = number})
+    end
+
+    -- sort the numbers in descending order
+    table.sort(numbers, function(a, b) return a.value > b.value end)
+
+
+    return numbers
+end
+
+local function finalize(self)
+	--print("finallendik")
+	self.second_state = false
+
+	-- calculating points...
+	for i = 1, 4, 1 do
+
+		if tonumber(gui.get_text(gui.get_node(self.last4_text[i]))) >= 0 then -- coloring man, red and green.
+			gui.set_color(gui.get_node(self.last4_text[i]), vmath.vector4(0.2, 0.8, 0.2, 1))
+		else
+			gui.set_color(gui.get_node(self.last4_text[i]), vmath.vector4(0.8, 0.2, 0.2, 1))
+		end
+		
+		table.insert(self.locked_values, self.last4_root[i])
+		gui.set_text(gui.get_node("point_text" .. i), tostring(tonumber(gui.get_text(gui.get_node("point_text" .. i))) + tonumber(gui.get_text(gui.get_node(self.last4_text[i])))))
+		
+		
+
+	end
+
+	-- names to white
+	for i = 1, 4, 1 do
+		gui.set_color(gui.get_node("name_text" .. i), vmath.vector4(1, 1, 1, 1))
+	end
+
+	-- name to yellow
+	gui.set_color(gui.get_node("name_text" .. string.sub(sort()[1].name, -1)), vmath.vector4(1, 0.8, 0.1, 1))
+
+	-- points
+	gui.set_color(gui.get_node(sort()[1].name), vmath.vector4(1, 0, 0.9, 1))
+	gui.set_color(gui.get_node(sort()[2].name), vmath.vector4(0.8, 0, 0.7, 1))
+	gui.set_color(gui.get_node(sort()[3].name), vmath.vector4(0.6, 0, 0.5, 1))
+	gui.set_color(gui.get_node(sort()[4].name), vmath.vector4(0.4, 0, 0.3, 1))
+
+	new_row(self)
+end
+
+local function update_counter(self, state)
+
+	
+	if state == 1 then
+		local counter_value = 0
+		for _, value in pairs(self.last4_text) do
+			counter_value = tonumber(counter_value) + tonumber(gui.get_text(gui.get_node(value)))
+		end
+		self.counter_value = counter_value
+		gui.set_text(gui.get_node("counter_text"), self.counter_value)
+		gui.set_text(gui.get_node("counter_text2"), 13 - self.counter_value)
+	elseif state == 2 then
+		local counter_value = 0
+		for _, value in pairs(self.second_values) do
+			counter_value = tonumber(counter_value) + tonumber(value)
+		end
+		self.counter_value = counter_value
+		gui.set_text(gui.get_node("counter_text"), self.counter_value)
+	end
+	
+end
+
+local shaking = false
+
+local function gabagus_shake(node1, node2)
+	if not shaking then
+		shaking = true
+		local duration = 0.05
+		local shake_intensity = 3
+		local original_position1 = gui.get_position(node1)
+		gui.animate(node1, "position.x", original_position1.x - shake_intensity, gui.EASING_OUTELASTIC, duration, 0, function()
+			gui.animate(node1, "position.x", original_position1.x + shake_intensity, gui.EASING_OUTELASTIC, duration, 0, function()
+				gui.animate(node1, "position.x", original_position1.x, gui.EASING_OUTELASTIC, duration)
+			end)
+		end)
+		if node2 then
+			local original_position2 = gui.get_position(node2)
+			gui.animate(node2, "position.x", original_position2.x - shake_intensity, gui.EASING_OUTELASTIC, duration, 0, function()
+				gui.animate(node2, "position.x", original_position2.x + shake_intensity, gui.EASING_OUTELASTIC, duration, 0, function()
+					gui.animate(node2, "position.x", original_position2.x, gui.EASING_OUTELASTIC, duration, 0, function()
+						shaking = false
+					end)
+				end)
+			end)
+		else
+			shaking = false
+		end
+	end
+end
+
+local function unique_values(tab1, tab2)
+    local result = {}
+    local tab2Set = {}
+
+    -- convert the second table into a set
+    for _, v in ipairs(tab2) do
+        tab2Set[v] = true
+    end
+
+    -- check the elements in the first table
+    for _, v in ipairs(tab1) do
+        if not tab2Set[v] then
+            table.insert(result, v)
+        end
+    end
+
+    return result
+end
+
+local function row_counter_change(self)
+	local n = gui.get_node("row_counter_text")
+	local c = gui.get_color(n)
+	if self.row_counter_active then
+		self.row_counter_active = false
+		gui.set_color(n, vmath.vector4(c.x, c.y, c.z, 0))
+	else
+		self.row_counter_active = true
+		gui.set_color(n, vmath.vector4(c.x, c.y, c.z, 1))
+	end
+end
+
+local function announcer(self)
+	local c = gui.get_color(gui.get_node("state_announcer"))
+	if self.announcer_state == 0 then
+		gui.set_color(gui.get_node("state_announcer"), vmath.vector4(c.x, c.y, c.z, 0))
+	else
+		gui.set_color(gui.get_node("state_announcer"), vmath.vector4(c.x, c.y, c.z, 1))
+		gui.set_text(gui.get_node("state_announcer"), self.announcer_values["s" .. (self.second_state and 2 or 1) .. "_" .. self.announcer_state])
+	end
+end
+
+local function change_lock(self, logo)
+	if logo == 1 then
+		gui.play_flipbook(gui.get_node("lock_icon"), "asset_lock2")
+		gui.set_scale(gui.get_node("lock_icon"), vmath.vector3(0.35, 0.35, 1))
+		announcer(self)
+	elseif logo == 2 then
+		gui.play_flipbook(gui.get_node("lock_icon"), "asset_check")
+		gui.set_scale(gui.get_node("lock_icon"), vmath.vector3(0.4, 0.4, 1))
+		announcer(self)
+	end
+end
+
+function init(self)
+	
+	self.node_main_root = gui.get_node("main_root")
+	self.is_numpad_active = false
+	self.is_animating = false
+	self.clicked_default_button = nil
+	self.last_default_node_id = nil
+	self.second_state = false
+	self.last4_root = {}
+	self.last4_text = {}
+	self.finalized_nodes = {}
+	self.locked_values = {}
+	self.saved_values = {}
+	self.is_first_row = true
+	self.counter_value = 4
+	self.second_values = {}
+	self.message = ""
+	self.row_counter = 0
+	self.announcer_values =
+	{
+		s1_1 = "Kaç yapar?", s2_1 = "Kaç yaptı?",
+		s1_2 = "Bahis?", s2_2 = "Sonuç?"
+	}
+	self.announcer_state = 0
+	self.name_number = 1
+	self.name_values =
+	{
+		"Name",
+		"Name2",
+		"Name3",
+		"Name4",
+		"N",
+		"B",
+		"X",
+		"E",
+	}
+
+	-- druid default and scroll grid --
+
+    self.druid = druid.new(self)
+    
+    self.created_nodes = {}
+
+	self.prefab = gui.get_node("prefab")
+	gui.set_enabled(self.prefab, false)
+
+	self.scroll = self.druid:new_scroll("view", "content")
+	self.grid = self.druid:new_static_grid("content", "prefab", 4)
+	self.scroll:bind_grid(self.grid)
+
+	new_row(self)
+
+	-- druid default and scroll grid --
+
+	-- back button --
+
+	self.back_button = self.druid:new_button("num_button_b", function()
+
+		-- back button on click -- ---------------------------------------------------------------------------
+
+		if not self.is_numpad_active then return end -- bug fixer code
+		-- insert back
+		if self.last_removed then
+			table.insert(self.finalized_nodes, self.last_removed)
+			self.last_removed = nil
+		end
+		swipe_animation(self)
+
+		-- back button on click --
+
+	end)
+	
+	-- back button --
+
+	-- druid num buttons --
+
+
+	local num_button = "num_button_"
+	local num_text = "num_"
+	for i = 0, 13, 1 do
+		local num_node = num_button..i
+		local num_text_node = num_text..i
+		self.num_button = self.druid:new_button(num_node, function()
+			if self.is_animating then return end -- if animating, skip.
+			if not self.is_numpad_active then return end -- bug fixer code
+
+			-- NUM BUTTONS ONCLICK -- ------------------------------------------------------------------------
+			
+			local clicked_num = gui.get_text(gui.get_node(num_text_node))
+			--local clicked_def = gui.get_text(gui.get_node(self.clicked_default_button))
+			local damnumber = self.saved_values[self.clicked_default_button]
+			local final_number
+
+			if self.second_state then
+				if damnumber == clicked_num then
+					final_number = damnumber..0
+				elseif (clicked_num - damnumber) == 1 then
+					final_number = damnumber..1
+				elseif (clicked_num - damnumber) == 2 then
+					final_number = damnumber..2
+				else
+					final_number = (damnumber..0) * -1
+				end
+
+				self.second_values[self.clicked_default_button] = clicked_num
+				table.insert(self.finalized_nodes, self.clicked_default_button) -- add clicked node to finalized table
+			else
+				if clicked_num == "0" then return end -- if first number is 0, skip.
+				final_number = clicked_num
+				self.saved_values[self.clicked_default_button] = clicked_num
+			end
+
+			gui.set_text(gui.get_node(self.clicked_default_button), final_number)
+
+			local scale = gui.get_scale(gui.get_node(self.clicked_default_button))
+			local to = scale + vmath.vector3(0.2, 0.2, 0)
+			gui.animate(gui.get_node(self.clicked_default_button), "scale", to, gui.EASING_INOUTBACK, 0.27, 0.1, nil, gui.PLAYBACK_ONCE_PINGPONG)
+			
+			if not self.second_state then update_counter(self,1) else update_counter(self,2) end -- update counter
+			swipe_animation(self)
+
+			-- NUM BUTTONS ONCLICK --
+
+		end)
+	end
+
+	-- druid num buttons --
+
+
+	-- druid lock button --
+
+	self.num_button = self.druid:new_button("lock", function()
+		if self.is_animating then return end -- if animating, skip.
+		if self.is_numpad_active then return end -- bug fixer code
+
+
+		-- LOCK BUTTON ONCLICK -- ------------------------------------------------------------------------
+
+		if self.second_state then
+			
+			if #self.finalized_nodes >= #self.created_nodes then
+				if self.counter_value == 13 then
+					finalize(self)
+					change_lock(self, 1)
+				else
+					gabagus_shake(gui.get_node("counter"))
+				end
+			else
+				for _, value in pairs(unique_values(self.last4_text, self.finalized_nodes)) do
+					gabagus_shake(gui.get_node(value))
+				end
+
+			end
+		else
+			
+			local zero = false
+			for i = 1, 4, 1 do
+				if tonumber(gui.get_text(gui.get_node(self.last4_text[i]))) == 0 then
+					gabagus_shake(gui.get_node(self.last4_text[i]))
+					zero = true
+				end
+			end
+			if zero then
+				return
+			end
+
+			for i = 1, 4, 1 do
+				gui.set_color(gui.get_node(self.last4_text[i]), vmath.vector4(0.8,0.7,0.1,1))
+				if i >= 4 then
+					self.second_state = true
+					gui.set_enabled(gui.get_node("counter2"), false)
+					change_lock(self, 2)
+				end
+			end
+			self.counter_value = 0
+			gui.set_text(gui.get_node("counter_text"), self.counter_value)
+		end
+
+		-- reset receyle bin
+		self.last_removed = nil
+
+		if tonumber(gui.get_text(gui.get_node("row_counter_text"))) >= 50 then -- 50 row is the limit.
+			gabagus_shake(gui.get_node("row_counter_text"))
+			gui.set_enabled(gui.get_node("lock"), false)
+		end
+		
+		-- LOCK BUTTON ONCLICK --
+	end)
+
+	-- druid lock button --
+
+	for i = 1, 4, 1 do
+		self["name" .. i .. "_button"] = self.druid:new_button(gui.get_node("name" .. i), function()
+			self.message = ""
+			if mht then
+				if self.name_listener then mht.removeListener(self.name_listener) end
+				self.name_listener = mht.onText(self, function (self, text)
+					gui.set_text(gui.get_node("name_text" .. i), text)
+				end)
+				mht.openTextBox(gui.get_text(gui.get_node("name_text" .. i)))
+			elseif sys.get_sys_info().system_name == "Android" or sys.get_sys_info().system_name == "iPhone OS" then
+				self.picked_input = i
+				gui.show_keyboard(gui.KEYBOARD_TYPE_DEFAULT, false)
+			else
+				self.picked_input = i
+			end
+		end)
+	end
+
+end
+
+
+
+
+
+
+-- IGNORE --
+
+-- "update" is used in progress bar, scroll, and timer basic components
+function update(self, dt)
+    self.druid:update(dt)
+end
+
+-- "final" is a required function for the correct Druid workflow
+function final(self)
+    self.druid:final()
+end
+
+-- "on_message" is used for specific Druid events, like language change or layout change
+function on_message(self, message_id, message, sender)
+    self.druid:on_message(message_id, message, sender)
+end
+
+-- "on_input" is used in almost all Druid components
+-- The return value from `druid:on_input` is required!
+function on_input(self, action_id, action)
+	if action_id == hash("touch") then
+		if gui.pick_node(gui.get_node("row_counter_text"), action.x, action.y) and action.pressed then
+			row_counter_change(self)
+		elseif gui.pick_node(gui.get_node("state_announcer"), action.x, action.y) and action.pressed then
+			self.announcer_state = self.announcer_state + 1
+			if self.announcer_state >= 3 then self.announcer_state = 0 end
+			announcer(self)
+			print(self.announcer_state)
+		elseif gui.pick_node(gui.get_node("last_name_changer"), action.x, action.y) and action.pressed then
+			self.name_number = self.name_number + 1
+			if self.name_number >= #self.name_values + 1 then
+				self.name_number = 1
+			end
+			gui.set_text(gui.get_node("name_text4"), self.name_values[self.name_number])
+		end
+	elseif action_id == hash("text") and self.picked_input and not mht then
+		self.message = self.message .. action.text
+		gui.set_text(gui.get_node("name_text" .. self.picked_input), self.message)
+	elseif action_id == hash("key_backspace") and action.repeated and not mht then
+		local l = string.len(self.message)
+		self.message = string.sub(self.message, 0, l-1)
+		gui.set_text(gui.get_node("name_text" .. self.picked_input), self.message)
+	end
+
+
+	-- input is accepted from anywhere except the name buttons
+	if (not mht) and action.pressed and not (
+		gui.pick_node(gui.get_node("name1"), action.x, action.y) or
+		gui.pick_node(gui.get_node("name2"), action.x, action.y) or
+		gui.pick_node(gui.get_node("name3"), action.x, action.y) or
+		gui.pick_node(gui.get_node("name4"), action.x, action.y))
+	then
+		gui.hide_keyboard()
+		self.picked_input = nil
+		self.message = ""
+	end
+
+    return self.druid:on_input(action_id, action)
+end
+
+-- IGNORE --

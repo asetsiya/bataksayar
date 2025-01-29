@@ -1,0 +1,7 @@
+images {
+  image: "/assets/asset_check.png"
+}
+images {
+  image: "/assets/asset_lock2.png"
+}
+extrude_borders: 2
